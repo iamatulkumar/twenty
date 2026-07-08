@@ -23,6 +23,7 @@ import {
   ApplicationRegistrationException,
   ApplicationRegistrationExceptionCode,
 } from 'src/engine/core-modules/application/application-registration/application-registration.exception';
+import { ApplicationRegistrationService } from 'src/engine/core-modules/application/application-registration/application-registration.service';
 import { ApplicationRegistrationSourceType } from 'src/engine/core-modules/application/application-registration/enums/application-registration-source-type.enum';
 import { fromManifestApplicationToDisplayFields } from 'src/engine/core-modules/application/application-registration/utils/from-manifest-application-to-display-fields.util';
 import { ApplicationService } from 'src/engine/core-modules/application/application.service';
@@ -40,6 +41,7 @@ export class ApplicationTarballService {
     private readonly applicationService: ApplicationService,
     private readonly applicationRegistrationVariableService: ApplicationRegistrationVariableService,
     private readonly applicationVersionValidationService: ApplicationVersionValidationService,
+    private readonly applicationRegistrationService: ApplicationRegistrationService,
   ) {}
 
   async uploadTarball(params: {
@@ -111,6 +113,8 @@ export class ApplicationTarballService {
           ownerWorkspaceId: params.ownerWorkspaceId,
         },
       });
+
+      const isNewRegistration = !isDefined(appRegistration);
 
       if (isDefined(appRegistration)) {
         if (
@@ -212,6 +216,16 @@ export class ApplicationTarballService {
       this.logger.log(
         `Tarball uploaded for app ${universalIdentifier} (registration ${appRegistration.id})`,
       );
+
+      // A tarball deploy is an explicit publish: first upload creates the
+      // registration, a re-deploy is a monotonic version bump (enforced above).
+      this.applicationRegistrationService.emitRegistrationPublishMetric({
+        isNewRegistration,
+        universalIdentifier,
+        name: manifest.application?.displayName ?? 'Unknown App',
+        sourceType: ApplicationRegistrationSourceType.TARBALL,
+        version: packageJson?.version ?? null,
+      });
 
       return this.appRegistrationRepository.findOneOrFail({
         where: { id: appRegistration.id },

@@ -30,6 +30,8 @@ import { ApplicationRegistrationSourceType } from 'src/engine/core-modules/appli
 import { fromManifestApplicationToDisplayFields } from 'src/engine/core-modules/application/application-registration/utils/from-manifest-application-to-display-fields.util';
 import { ApplicationEntity } from 'src/engine/core-modules/application/application.entity';
 import { validateRedirectUri } from 'src/engine/core-modules/auth/utils/validate-redirect-uri.util';
+import { MetricsService } from 'src/engine/core-modules/metrics/metrics.service';
+import { MetricsKeys } from 'src/engine/core-modules/metrics/types/metrics-keys.type';
 import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
 import { ApplicationRegistrationVariableService } from 'src/engine/core-modules/application/application-registration-variable/application-registration-variable.service';
 import { CoreEntityCacheService } from 'src/engine/core-entity-cache/services/core-entity-cache.service';
@@ -95,6 +97,7 @@ export class ApplicationRegistrationService {
     private readonly applicationRegistrationVariableService: ApplicationRegistrationVariableService,
     private readonly cacheLockService: CacheLockService,
     private readonly coreEntityCacheService: CoreEntityCacheService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   private async invalidateMarketplaceAppsCache(): Promise<void> {
@@ -106,6 +109,39 @@ export class ApplicationRegistrationService {
     } catch (error) {
       this.logger.error('Failed to invalidate marketplace apps cache', error);
     }
+  }
+
+  // Emits a metric when an application registration is published to the catalog
+  // for the first time (created) or a new version becomes available. Callers
+  // must only invoke this when the version actually changed, so the counter
+  // stays at exactly-once per real publish even though several code paths
+  // (catalog sync, version-check cron, tarball deploy) converge on the same
+  // latestAvailableVersion.
+  emitRegistrationPublishMetric({
+    isNewRegistration,
+    universalIdentifier,
+    name,
+    sourceType,
+    version,
+  }: {
+    isNewRegistration: boolean;
+    universalIdentifier: string;
+    name: string;
+    sourceType: string;
+    version?: string | null;
+  }): void {
+    void this.metricsService.incrementCounterForEvent({
+      key: isNewRegistration
+        ? MetricsKeys.AppRegistrationCreated
+        : MetricsKeys.AppRegistrationVersionPublished,
+      attributes: {
+        universalIdentifier,
+        appName: name,
+        sourceType,
+        version: version ?? 'unknown',
+      },
+      shouldStoreInCache: false,
+    });
   }
 
   async findMany(
@@ -414,6 +450,9 @@ export class ApplicationRegistrationService {
     const isVetted = vettedIdentifiers.has(params.universalIdentifier);
 
     if (isDefined(existing)) {
+      const isNewVersion =
+        existing.latestAvailableVersion !== params.latestAvailableVersion;
+
       await this.applicationRegistrationRepository.save({
         ...existing,
         name: params.name,
@@ -424,6 +463,16 @@ export class ApplicationRegistrationService {
         manifest: params.manifest,
         ...fromManifestApplicationToDisplayFields(params.manifest?.application),
       });
+
+      if (isNewVersion) {
+        this.emitRegistrationPublishMetric({
+          isNewRegistration: false,
+          universalIdentifier: params.universalIdentifier,
+          name: params.name,
+          sourceType: params.sourceType,
+          version: params.latestAvailableVersion,
+        });
+      }
     } else {
       const registration = this.applicationRegistrationRepository.create({
         universalIdentifier: params.universalIdentifier,
@@ -442,6 +491,14 @@ export class ApplicationRegistrationService {
       });
 
       await this.applicationRegistrationRepository.save(registration);
+
+      this.emitRegistrationPublishMetric({
+        isNewRegistration: true,
+        universalIdentifier: params.universalIdentifier,
+        name: params.name,
+        sourceType: params.sourceType,
+        version: params.latestAvailableVersion,
+      });
     }
 
     await this.invalidateMarketplaceAppsCache();
