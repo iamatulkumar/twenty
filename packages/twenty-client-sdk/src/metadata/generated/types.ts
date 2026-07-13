@@ -7534,6 +7534,9 @@ export default {
                     ],
                     "successUrlPath": [
                         1
+                    ],
+                    "couponCode": [
+                        1
                     ]
                 }
             ],
@@ -7553,6 +7556,9 @@ export default {
                         "Boolean!"
                     ],
                     "successUrlPath": [
+                        1
+                    ],
+                    "couponCode": [
                         1
                     ],
                     "idempotencyKey": [
