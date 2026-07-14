@@ -3,6 +3,7 @@ import { Title } from '@/auth/components/Title';
 import { FooterNote } from '@/auth/sign-in-up/components/FooterNote';
 import { WorkspaceSelectionFooter } from '@/auth/sign-in-up/components/WorkspaceSelectionFooter';
 import { SignInUpStep } from '@/auth/states/signInUpStepState';
+import { ONBOARDING_CONTENT_BLOCK_WIDTH } from '@/onboarding/constants/OnboardingContentBlockWidth';
 import { styled } from '@linaria/react';
 import { type JSX } from 'react';
 import { AppPath } from 'twenty-shared/types';
@@ -22,8 +23,12 @@ const StyledFormContainer = styled.div`
   flex-direction: column;
   margin-bottom: ${themeCssVariables.spacing[6]};
   margin-top: ${themeCssVariables.spacing[6]};
+  max-width: 100%;
   min-width: 0;
-  width: 100%;
+  // Cap the step content (2FA, SSO selection, workspace-scope sign-in) to the
+  // shared onboarding block width. Without this the card-less full-screen
+  // sign-in lets these full-width forms stretch across the whole viewport.
+  width: ${ONBOARDING_CONTENT_BLOCK_WIDTH}px;
 `;
 
 type SignInUpStandardContentProps = {
