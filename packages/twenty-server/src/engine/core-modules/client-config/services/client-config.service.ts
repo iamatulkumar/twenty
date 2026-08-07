@@ -3,6 +3,8 @@ import { Injectable } from '@nestjs/common';
 import { isNonEmptyString } from '@sniptt/guards';
 import { isDefined } from 'twenty-shared/utils';
 
+import { readIsCompanyEnrichmentEnabled } from 'src/engine/core-modules/company-enrichment/utils/read-is-company-enrichment-enabled.util';
+import { readBookCallStepMinEmployeeCount } from 'src/engine/core-modules/onboarding/utils/read-book-call-step-min-employee-count.util';
 import { NodeEnvironment } from 'src/engine/core-modules/twenty-config/interfaces/node-environment.interface';
 import { SupportDriver } from 'src/engine/core-modules/twenty-config/interfaces/support.interface';
 
@@ -24,6 +26,10 @@ import {
 import { MODEL_FAMILY_LABELS } from 'src/engine/metadata-modules/ai/ai-models/constants/model-family-labels.const';
 import { getNativeModelCapabilities } from 'src/engine/metadata-modules/ai/ai-models/utils/get-native-model-capabilities.util';
 import { AiModelRegistryService } from 'src/engine/metadata-modules/ai/ai-models/services/ai-model-registry.service';
+
+// Served only so front bundles cached from the previous release keep booting; the
+// subdomain minimum is now fixed at 1 and nothing reads this value anymore.
+const DEPRECATED_SUBDOMAIN_MIN_LENGTH = 1;
 
 @Injectable()
 export class ClientConfigService {
@@ -47,10 +53,18 @@ export class ClientConfigService {
     const calendarBookingPageId = this.twentyConfigService.get(
       'CALENDAR_BOOKING_PAGE_ID',
     );
+    const isBookCallOnboardingStepEnabled = isDefined(
+      readBookCallStepMinEmployeeCount(this.twentyConfigService),
+    );
+    const isCompanyEnrichmentEnabled = readIsCompanyEnrichmentEnabled(
+      this.twentyConfigService,
+    );
 
     const isEmailingDomainInDemoMode =
       this.twentyConfigService.get('EMAILING_DOMAIN_DRIVER') ===
       EmailingDomainDriver.LOG;
+
+    const isBillingEnabled = this.twentyConfigService.get('IS_BILLING_ENABLED');
 
     const availableModels =
       this.aiModelRegistryService.getAdminFilteredModels();
@@ -160,7 +174,7 @@ export class ClientConfigService {
     const clientConfig: ClientConfig = {
       appVersion: this.twentyConfigService.get('APP_VERSION'),
       billing: {
-        isBillingEnabled: this.twentyConfigService.get('IS_BILLING_ENABLED'),
+        isBillingEnabled,
         billingUrl: this.twentyConfigService.get('BILLING_PLAN_REQUIRED_LINK'),
         stripePublishableKey: this.twentyConfigService.get(
           'BILLING_STRIPE_PUBLISHABLE_KEY',
@@ -196,6 +210,7 @@ export class ClientConfigService {
         'IS_EMAIL_VERIFICATION_REQUIRED',
       ),
       defaultSubdomain: this.twentyConfigService.get('DEFAULT_SUBDOMAIN'),
+      subdomainMinLength: DEPRECATED_SUBDOMAIN_MIN_LENGTH,
       frontDomain: this.domainServerConfigService.getFrontUrl().hostname,
       publicFunctionDomain:
         this.domainServerConfigService.getPublicBaseHostnameOrUndefined() ??
@@ -220,28 +235,30 @@ export class ClientConfigService {
           'MUTATION_MAXIMUM_AFFECTED_RECORDS',
         ),
       },
-      onboarding: {
-        importContactsCreditsReward: toDisplayCredits(
-          this.twentyConfigService.get(
-            'ONBOARDING_IMPORT_CONTACTS_CREDITS_REWARD',
-          ),
-        ),
-        inviteTeamCreditsRewardPerUser: toDisplayCredits(
-          this.twentyConfigService.get(
-            'ONBOARDING_INVITE_TEAM_CREDITS_REWARD_PER_USER',
-          ),
-        ),
-        upgradeCreditsReward: toDisplayCredits(
-          this.twentyConfigService.get(
-            'BILLING_FREE_WORKFLOW_CREDITS_FOR_TRIAL_PERIOD_WITH_CREDIT_CARD',
-          ),
-        ),
-        installAppsCreditsRewardPerApp: toDisplayCredits(
-          this.twentyConfigService.get(
-            'ONBOARDING_INSTALL_APPS_CREDITS_REWARD_PER_APP',
-          ),
-        ),
-      },
+      onboarding: isBillingEnabled
+        ? {
+            importContactsCreditsReward: toDisplayCredits(
+              this.twentyConfigService.get(
+                'ONBOARDING_IMPORT_CONTACTS_CREDITS_REWARD',
+              ),
+            ),
+            inviteTeamCreditsRewardPerUser: toDisplayCredits(
+              this.twentyConfigService.get(
+                'ONBOARDING_INVITE_TEAM_CREDITS_REWARD_PER_USER',
+              ),
+            ),
+            upgradeCreditsReward: toDisplayCredits(
+              this.twentyConfigService.get(
+                'BILLING_FREE_WORKFLOW_CREDITS_FOR_TRIAL_PERIOD_WITH_CREDIT_CARD',
+              ),
+            ),
+            installAppsCreditsRewardPerApp: toDisplayCredits(
+              this.twentyConfigService.get(
+                'ONBOARDING_INSTALL_APPS_CREDITS_REWARD_PER_APP',
+              ),
+            ),
+          }
+        : null,
       isAttachmentPreviewEnabled: this.twentyConfigService.get(
         'IS_ATTACHMENT_PREVIEW_ENABLED',
       ),
@@ -249,8 +266,12 @@ export class ClientConfigService {
       canManageFeatureFlags:
         this.twentyConfigService.get('NODE_ENV') ===
           NodeEnvironment.DEVELOPMENT ||
-        this.twentyConfigService.get('IS_BILLING_ENABLED'),
+        isBillingEnabled ||
+        this.twentyConfigService.get('IS_FEATURE_FLAG_MANAGEMENT_ENABLED'),
       publicFeatureFlags: PUBLIC_FEATURE_FLAGS,
+      isCookieSessionEnabled: this.twentyConfigService.get(
+        'AUTH_COOKIE_SESSIONS_ENABLED',
+      ),
       isMicrosoftMessagingEnabled: this.twentyConfigService.get(
         'MESSAGING_PROVIDER_MICROSOFT_ENABLED',
       ),
@@ -276,6 +297,8 @@ export class ClientConfigService {
       calendarBookingPageId: isNonEmptyString(calendarBookingPageId)
         ? calendarBookingPageId
         : undefined,
+      isBookCallOnboardingStepEnabled,
+      isCompanyEnrichmentEnabled,
       isCloudflareIntegrationEnabled: this.isCloudflareIntegrationEnabled(),
       isClickHouseConfigured: !!this.twentyConfigService.get('CLICKHOUSE_URL'),
       isWorkspaceSchemaDDLLocked: this.twentyConfigService.get(

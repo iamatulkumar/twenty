@@ -573,20 +573,6 @@
         "supportsReasoning": true
       },
       {
-        "name": "claude-opus-4-1",
-        "label": "Claude Opus 4.1 (latest)",
-        "modelFamily": "CLAUDE",
-        "inputCostPerMillionTokens": 15,
-        "outputCostPerMillionTokens": 75,
-        "cachedInputCostPerMillionTokens": 1.5,
-        "cacheCreationCostPerMillionTokens": 18.75,
-        "contextWindowTokens": 200000,
-        "maxOutputTokens": 32000,
-        "modalities": ["image", "pdf"],
-        "supportsReasoning": true,
-        "isDeprecated": true
-      },
-      {
         "name": "claude-sonnet-4-5",
         "label": "Claude Sonnet 4.5 (latest)",
         "modelFamily": "CLAUDE",
@@ -689,20 +675,6 @@
         "maxOutputTokens": 128000,
         "modalities": ["image", "pdf"],
         "supportsReasoning": true
-      },
-      {
-        "name": "claude-opus-4-1-20250805",
-        "label": "Claude Opus 4.1",
-        "modelFamily": "CLAUDE",
-        "inputCostPerMillionTokens": 15,
-        "outputCostPerMillionTokens": 75,
-        "cachedInputCostPerMillionTokens": 1.5,
-        "cacheCreationCostPerMillionTokens": 18.75,
-        "contextWindowTokens": 200000,
-        "maxOutputTokens": 32000,
-        "modalities": ["image", "pdf"],
-        "supportsReasoning": true,
-        "isDeprecated": true
       }
     ]
   },
@@ -1198,6 +1170,16 @@
         "maxOutputTokens": 262144,
         "modalities": ["image"],
         "supportsReasoning": true
+      },
+      {
+        "name": "voxtral-small-latest",
+        "label": "Voxtral Small (latest)",
+        "modelFamily": "MISTRAL",
+        "inputCostPerMillionTokens": 0.1,
+        "outputCostPerMillionTokens": 0.3,
+        "contextWindowTokens": 32000,
+        "maxOutputTokens": 32000,
+        "modalities": ["audio"]
       },
       {
         "name": "devstral-latest",

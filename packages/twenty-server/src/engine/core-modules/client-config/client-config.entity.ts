@@ -277,6 +277,12 @@ export class ClientConfig {
   @Field(() => String, { nullable: true })
   defaultSubdomain: string;
 
+  @Field(() => Number, {
+    deprecationReason:
+      'Subdomain minimum length is no longer configurable; kept one release for API compatibility, no longer read by the frontend.',
+  })
+  subdomainMinLength: number;
+
   @Field(() => String)
   frontDomain: string;
 
@@ -301,13 +307,16 @@ export class ClientConfig {
   @Field(() => ApiConfig)
   api: ApiConfig;
 
-  onboarding: OnboardingConfig;
+  onboarding: OnboardingConfig | null;
 
   @Field(() => Boolean)
   canManageFeatureFlags: boolean;
 
   @Field(() => [PublicFeatureFlag])
   publicFeatureFlags: PublicFeatureFlag[];
+
+  @Field(() => Boolean)
+  isCookieSessionEnabled: boolean;
 
   @Field(() => Boolean)
   isMicrosoftMessagingEnabled: boolean;
@@ -335,6 +344,12 @@ export class ClientConfig {
 
   @Field(() => String, { nullable: true })
   calendarBookingPageId?: string;
+
+  @Field(() => Boolean)
+  isBookCallOnboardingStepEnabled: boolean;
+
+  @Field(() => Boolean)
+  isCompanyEnrichmentEnabled: boolean;
 
   @Field(() => Boolean)
   isCloudflareIntegrationEnabled: boolean;
